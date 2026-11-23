@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Sunset Bay — Open World Crime Game</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1a0f2e; font-family: 'Segoe UI', Arial, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  #app canvas { display: block; }
+  .hidden { display: none !important; }
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.7); }
+  .panel { background: rgba(10, 8, 24, .55); border: 1px solid rgba(255, 190, 90, .35); border-radius: 10px; backdrop-filter: blur(2px); }
+  #minimapWrap { position: absolute; top: 14px; left: 14px; padding: 6px 6px 2px; }
+  #minimapWrap .lbl { font-size: 12px; letter-spacing: 2px; color: #ffcf7d; text-align: center; font-weight: 700; margin-bottom: 2px; }
+  #minimap { width: 200px; height: 200px; border-radius: 6px; display: block; }
+  #wanted { position: absolute; top: 14px; right: 14px; padding: 8px 14px; text-align: right; }
+  #wanted .stars { font-size: 30px; line-height: 1; letter-spacing: 3px; color: #ffd75e; }
+  #wanted .stars .off { color: rgba(255,255,255,.22); }
+  #wanted .wlabel { font-size: 12px; letter-spacing: 3px; color: #ff9d5c; font-weight: 700; }
+  #mission { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 8px 18px; text-align: center; max-width: 520px; }
+  #mission .mtitle { font-size: 13px; letter-spacing: 2px; color: #ffcf7d; font-weight: 700; }
+  #mission .mtext { font-size: 19px; font-weight: 700; margin-top: 2px; }
+  #mission .mdist { font-size: 13px; color: #cfe3ff; margin-top: 1px; }
+  #stats { position: absolute; right: 14px; bottom: 14px; padding: 10px 14px; text-align: right; min-width: 170px; }
+  #money { font-size: 26px; font-weight: 800; color: #7dff9e; }
+  #healthBar { height: 12px; background: rgba(255,255,255,.18); border-radius: 6px; margin-top: 6px; overflow: hidden; }
+  #healthFill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5f6d, #ffc371); border-radius: 6px; }
+  #healthLbl { font-size: 11px; letter-spacing: 2px; color: #ffb3b3; margin-top: 3px; }
+  #speedo { position: absolute; left: 14px; bottom: 14px; padding: 8px 16px; font-size: 26px; font-weight: 800; }
+  #speedo small { font-size: 13px; color: #ffcf7d; font-weight: 600; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+  #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 4px #000; }
+  #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
+  #crosshair::after { left: 0; top: 10px; width: 22px; height: 2px; }
+  #toast { position: absolute; left: 50%; top: 110px; transform: translateX(-50%); padding: 10px 22px; font-size: 20px; font-weight: 700; text-align: center; max-width: 640px; }
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 6; box-shadow: inset 0 0 120px 40px rgba(255, 30, 30, .55); opacity: 0; transition: opacity .25s; }
+  #bustedBar { position: absolute; left: 50%; top: 170px; transform: translateX(-50%); width: 320px; padding: 8px 14px; text-align: center; }
+  #bustedBar .bl { font-size: 13px; letter-spacing: 2px; color: #ff8f8f; font-weight: 700; }
+  #bustedFillWrap { height: 10px; background: rgba(255,255,255,.18); border-radius: 5px; margin-top: 5px; overflow: hidden; }
+  #bustedFill { height: 100%; width: 0%; background: #ff3b30; }
+  /* ---------- Screens ---------- */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #fff; text-align: center; background: linear-gradient(180deg, rgba(26,10,46,.82), rgba(8,4,20,.88)); }
+  .screen h1 { font-size: 64px; margin: 0; letter-spacing: 6px; color: #ffcf7d; text-shadow: 0 4px 0 #b3541e, 0 8px 24px rgba(0,0,0,.8); }
+  .screen h2 { font-size: 20px; margin: 6px 0 0; letter-spacing: 4px; color: #ff9d5c; font-weight: 600; }
+  .screen p.story { max-width: 560px; font-size: 17px; line-height: 1.55; color: #e8e2ff; margin: 22px 0 8px; }
+  .screen .btns { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .screen button { pointer-events: auto; cursor: pointer; font-size: 19px; font-weight: 700; padding: 13px 30px; border-radius: 10px; border: 2px solid #ffcf7d; background: #ff8c42; color: #1a0f2e; letter-spacing: 1px; }
+  .screen button.ghost { background: transparent; color: #ffcf7d; }
+  .screen button:hover { filter: brightness(1.15); }
+  .screen .controls { margin-top: 26px; font-size: 14px; line-height: 1.9; color: #c9c2e8; background: rgba(255,255,255,.06); border-radius: 10px; padding: 12px 22px; text-align: left; }
+  .screen .controls b { color: #ffcf7d; }
+  .screen .fine { margin-top: 20px; font-size: 12px; color: #8d86b3; }
+  #endTitle { font-size: 56px; }
+  #endStats { font-size: 18px; line-height: 1.8; color: #e8e2ff; margin-top: 10px; }
+  #err { position: fixed; left: 10px; bottom: 10px; z-index: 50; background: #600; color: #fff; padding: 8px 12px; font: 13px monospace; max-width: 70vw; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud" class="hidden">
+  <div id="minimapWrap" class="panel"><div class="lbl">SUNSET BAY</div><canvas id="minimap" width="200" height="200"></canvas></div>
+  <div id="wanted" class="panel"><div class="wlabel">WANTED</div><div class="stars" id="stars"></div></div>
+  <div id="mission" class="panel"><div class="mtitle" id="missionTitle"></div><div class="mtext" id="missionText"></div><div class="mdist" id="missionDist"></div></div>
+  <div id="stats" class="panel"><div id="money">$0</div><div id="healthBar"><div id="healthFill"></div></div><div id="healthLbl">HEALTH</div></div>
+  <div id="speedo" class="panel hidden"><span id="speedVal">0</span> <small>km/h</small></div>
+  <div id="crosshair" class="hidden"></div>
+  <div id="toast" class="panel hidden"></div>
+  <div id="bustedBar" class="panel hidden"><div class="bl">POLICE ARE GRABBING YOU — RUN!</div><div id="bustedFillWrap"><div id="bustedFill"></div></div></div>
+</div>
+<div id="vignette"></div>
+
+<div id="menu" class="screen">
+  <h1>SUNSET BAY</h1>
+  <h2>AN OPEN-WORLD CRIME STORY</h2>
+  <p class="story">Danny Vega is back in Sunset Bay with empty pockets and a long memory. Lena Marlowe has three jobs for him — steal a car, run her packages, and lose the heat. Explore the city on foot or behind the wheel, outrun the Sunset Bay PD, and earn your way back to the top.</p>
+  <div class="btns">
+    <button id="btnNew">NEW GAME</button>
+    <button id="btnContinue" class="ghost hidden">CONTINUE</button>
+    <button id="btnHow" class="ghost">HOW TO PLAY</button>
+  </div>
+  <div class="controls" id="menuControls"><b>WASD / Arrows</b> move &amp; drive &nbsp;·&nbsp; <b>Mouse drag</b> camera &nbsp;·&nbsp; <b>Shift</b> run &nbsp;·&nbsp; <b>E</b> steal / exit car &nbsp;·&nbsp; <b>Click</b> shoot &nbsp;·&nbsp; <b>Space</b> brake / jump &nbsp;·&nbsp; <b>P</b> pause &nbsp;·&nbsp; <b>M</b> mute</div>
+  <div class="fine">An original game. Sunset Bay, its people and its story are invented — no real city, no real gang, no borrowed names.</div>
+</div>
+
+<div id="howto" class="screen hidden">
+  <h1 style="font-size:40px">HOW TO PLAY</h1>
+  <div class="controls" style="font-size:16px; max-width:600px">
+    <b>On foot:</b> WASD moves, Shift runs, mouse drag turns the camera, click fires your pistol, Space jumps.<br>
+    <b>In a car:</b> walk up to any car and press E to take it. W/S accelerate and reverse, A/D steer, Space brakes, E gets out.<br>
+    <b>Wanted:</b> stealing a car, hitting a pedestrian or ramming a police car raises your wanted level. Police chase and ram you. Break line of sight and stay hidden to cool down.<br>
+    <b>Missions:</b> follow the yellow marker on the map and the HUD. Finish all three jobs to complete the story.<br>
+    <b>Save:</b> progress saves automatically. CONTINUE on the menu picks up where you left off.
+  </div>
+  <div class="btns"><button id="btnHowBack">BACK</button></div>
+</div>
+
+<div id="pause" class="screen hidden">
+  <h1 style="font-size:44px">PAUSED</h1>
+  <div class="btns">
+    <button id="btnResume">RESUME</button>
+    <button id="btnRestart" class="ghost">RESTART MISSION</button>
+    <button id="btnQuit" class="ghost">QUIT TO MENU</button>
+  </div>
+</div>
+
+<div id="end" class="screen hidden">
+  <h1 id="endTitle">BUSTED</h1>
+  <div id="endStats"></div>
+  <div class="btns">
+    <button id="btnEndRetry">TRY AGAIN</button>
+    <button id="btnEndMenu" class="ghost">MAIN MENU</button>
+  </div>
+</div>
+
+<div id="err" class="hidden"></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="src/input.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/city.js"></script>
+<script src="src/vehicles.js"></script>
+<script src="src/player.js"></script>
+<script src="src/traffic.js"></script>
+<script src="src/pedestrians.js"></script>
+<script src="src/police.js"></script>
+<script src="src/missions.js"></script>
+<script src="src/combat.js"></script>
+<script src="src/hud.js"></script>
+<script src="src/minimap.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
